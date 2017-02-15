@@ -2,6 +2,7 @@
  * Created by frank on 17/2/14.
  */
 var Sequelize = require('sequelize');
+
 var sequelize = new Sequelize(
     'yunsenlin',    //数据库名
     'frank',         //用户名
