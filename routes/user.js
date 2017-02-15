@@ -64,7 +64,7 @@ router.post('/login',function(req,res,next){
 router.post('/register',function(req,res,next){
 
   if (!reg.test(req.body.phone)){
-    res.json(JsonResult(403,"手机号码不规范",null));
+    res.json(JsonResult(400,"手机号码不规范",null));
     return;
   }
 
@@ -76,23 +76,35 @@ router.post('/register',function(req,res,next){
   var phone=req.body.phone;
   var password=req.body.password;
 
-  User.create({
-    phone : phone,
-    password : password
-  }).then(function(result){
+  User.findOne({
+    where:{
+      phone : phone
+    }
+  }).then(function(result) {
 
-    var token = jwt.sign({
-      id : result.id,
-      phone : result.phone
-    },secret,{expiresIn:'7d'});
+    if (result != null) {
+      res.json(JsonResult(403, "用户已存在", null));
+    }else {
 
-    res.json(JsonResult(200,"注册成功",token));
+      User.create({
+        phone : phone,
+        password : password
+      }).then(function(result){
 
-  }).catch(function(err){
+        var token = jwt.sign({
+          id : result.id,
+          phone : result.phone
+        },secret,{expiresIn:'7d'});
 
-    console.log("注册失败，数据库有插入错误");
-    res.json(JsonResult(500,"注册失败，数据库有插入错误",err));
+        res.json(JsonResult(200,"注册成功",token));
 
+      }).catch(function(err){
+
+        console.log("注册失败，数据库有插入错误");
+        res.json(JsonResult(500,"注册失败，数据库有插入错误",err));
+
+      });
+    }
   });
 
 });

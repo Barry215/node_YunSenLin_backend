@@ -24,4 +24,7 @@ module.exports = {
       "post-deploy" : "npm install && pm2 startOrRestart ecosystem.config.js --env production"
     }
   }
+
+  //pm2 deploy ecosystem.config.js production
+
 };
