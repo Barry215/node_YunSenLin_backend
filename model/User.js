@@ -16,8 +16,11 @@ var User = sequelize.define('user', {
     phone:Sequelize.STRING,
     user_head:Sequelize.STRING,
     state:Sequelize.INTEGER,
+    is_sync:Sequelize.INTEGER,
+    is_push:Sequelize.INTEGER,
     created_at:Sequelize.DATE,
-    updated_at:Sequelize.DATE
+    updated_at:Sequelize.DATE,
+    token:Sequelize.STRING
 }, {
     freezeTableName: true,
     tableName: 'user',

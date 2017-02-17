@@ -1,60 +1,45 @@
 var express = require('express');
-var User = require('../model/User');
 var JsonResult = require('../dto/JsonResult');
-var jwt = require('jsonwebtoken');
+var LoginInfo = require('../dto/LoginInfo');
+var UserBaseInfo = require('../dto/UserBaseInfo');
+var UserDao = require('../dao/UserDao');
+var PhoneService = require('../service/PhoneService');
+var TokenService = require('../service/TokenService');
+var co = require('co');
 var router = express.Router();
 
-var secret = "yunsenlin_key";
-var reg = /^[1][35678][0-9]{9}$/;
-
-//暂时的验证码
+/**
+ * 发送验证码
+ */
 router.get('/phoneCode',function(req,res,next){
-  res.json(JsonResult(200,"返回手机验证码",getPhoneCode()));
+  res.json(JsonResult(200,"返回手机验证码",PhoneService.getPhoneCode()));
 });
 
-function getPhoneCode() {
-  var m = 9999;
-  var n = 1000;
-  var w = m - n;
-  return parseInt(Math.random()*w+n, 10);
-}
-
+/**
+ * 登录
+ */
 router.post('/login',function(req,res,next){
 
-  //参数验证
-  if (!reg.test(req.body.phone)){
-    res.json(JsonResult(400,"手机号码不规范",null));
-    return;
-  }
-
-  var phone = req.body.phone;
-  var password = req.body.password;
-
-  User.findOne({
-    where:{
-      phone : phone,
-      password : password
-    }
-  }).then(function(result){
-
-    if (result != null){
-      var token = jwt.sign({
-        id : result.id,
-        phone : phone
-      },secret,{expiresIn:'7d'});
-
-      res.json(JsonResult(200,"登录成功",token));
-    }else {
-      res.json(JsonResult(403,"用户不存在或密码错误",null));
-
+    if (!PhoneService.validatePhone(req.body.phone)){
+        res.json(JsonResult(400,"手机号码不规范",null));
+        return;
     }
 
-  }).catch(function(err){
-
-    console.log("登录失败，数据库查询错误");
-    res.json(JsonResult(500,"登录失败，数据库查询错误",err));
-
-  });
+    UserDao.getLoginResult(req.body.phone,req.body.password).then(function (login_result) {
+        if (login_result != null){
+            var token = TokenService.createToken(login_result.phone);
+            UserDao.updateUserToken(login_result.id,token).then(function (update_result) {
+                //update_result返回1
+                res.json(JsonResult(200,"登录成功",LoginInfo(login_result,token)));
+            }).catch(function (err) {
+                res.json(JsonResult(500,"服务器更新Token发生错误",err));
+            });
+        }else {
+            res.json(JsonResult(403,"用户不存在或密码错误",null));
+        }
+    }).catch(function (err) {
+        res.json(JsonResult(500,"登录失败，数据库查询错误",err));
+    });
 
 });
 
@@ -62,104 +47,103 @@ router.post('/login',function(req,res,next){
  * 注册
  */
 router.post('/register',function(req,res,next){
-
-  if (!reg.test(req.body.phone)){
-    res.json(JsonResult(400,"手机号码不规范",null));
-    return;
-  }
-
-  if (req.body.code == null || req.body.code == ""){
-    res.json(JsonResult(403,"验证码为空或错误",null));
-    return;
-  }
-
-  var phone=req.body.phone;
-  var password=req.body.password;
-
-  User.findOne({
-    where:{
-      phone : phone
+    if (!PhoneService.validatePhone(req.body.phone)){
+        res.json(JsonResult(400,"手机号码不规范",null));
+        return;
     }
-  }).then(function(result) {
 
-    if (result != null) {
-      res.json(JsonResult(403, "用户已存在", null));
-    }else {
-
-      User.create({
-        phone : phone,
-        password : password
-      }).then(function(result){
-
-        var token = jwt.sign({
-          id : result.id,
-          phone : result.phone
-        },secret,{expiresIn:'7d'});
-
-        res.json(JsonResult(200,"注册成功",token));
-
-      }).catch(function(err){
-
-        console.log("注册失败，数据库有插入错误");
-        res.json(JsonResult(500,"注册失败，数据库有插入错误",err));
-
-      });
+    if (PhoneService.validateCode(req.body.code)){
+        res.json(JsonResult(403,"验证码为空或错误",null));
+        return;
     }
-  });
 
-});
+    var phone = req.body.phone;
+    var password = req.body.password;
 
-router.post('/modifyPsd',ensureAuthorized,function(req,res,next){
-  var id = req.decoded.id;
-  var old_psd = req.body.old_psd;
-  var new_psd = req.body.new_psd;
-
-  User.findOne({
-    where:{
-      id : id,
-      password : old_psd
-    }
-  }).then(function(result){
-
-    if (result != null){
-
-      User.update({
-        password : new_psd
-      },{
-        where:{
-          id : id
+    UserDao.validateUserExist(phone).then(function(exist_result) {
+        if (exist_result != null) {
+            res.json(JsonResult(403, "用户已存在", null));
+        } else {
+            var token = TokenService.createToken(phone);
+            UserDao.createUser(phone,password,token).then(function (create_result) {
+                //create_result返回插入的对象+id,没有其他属性
+                res.json(JsonResult(200,"注册成功",{username:"未设置",is_sync:true,is_push:true,token:token}));
+            }).catch(function (err) {
+                res.json(JsonResult(500,"注册失败，数据库插入错误",err));
+            });
         }
-      }).then(function(result){
-        console.log(result);
-        res.json(JsonResult(200,"修改成功",null));
-      }).catch(function(err){
-
-        console.log("修改失败，数据库修改错误");
-        res.json(JsonResult(500,"修改失败，数据库修改错误",err));
-
-      });
-
-    }else {
-      res.json(JsonResult(403,"密码错误",null));
-    }
-
-  });
+    }).catch(function(err){
+        res.json(JsonResult(500, "数据库查询错误", err));
+    });
 });
 
-function ensureAuthorized(req, res, next) {
-  if (req.get("Authorization") != null) {
+/**
+ * 修改密码
+ */
+router.post('/modifyPsd',TokenService.verifyAuthorized,function(req,res,next){
+    var user = req.user;
+    var old_psd = req.body.old_psd;
+    var new_psd = req.body.new_psd;
 
-    jwt.verify(req.get("Authorization"), secret, function(err, decoded) {
-      if (err) {
-        res.json(JsonResult(403,"token无效或失效",err));
-      } else {
-        req.decoded = decoded;
-        next();
-      }
+    if (old_psd == user.password){
+        UserDao.modifyUserPsd(user.phone,new_psd).then(function (modify_result) {
+            res.json(JsonResult(200,"修改成功",null));
+        }).catch(function (err) {
+            res.json(JsonResult(500,"修改失败，数据库修改错误",err));
+        });
+    }else {
+        res.json(JsonResult(403,"密码错误",null));
+    }
+
+});
+
+/**
+ * 找回密码
+ */
+router.post('/findPsd',function(req,res,next){
+    var phone = req.body.phone;
+    var code = req.body.code;
+    var new_psd = req.body.new_psd;
+
+    if (!PhoneService.validatePhone(phone)){
+        res.json(JsonResult(400,"手机号码不规范",null));
+        return;
+    }
+
+    if (PhoneService.validateCode(code)){
+        res.json(JsonResult(403,"验证码为空或错误",null));
+        return;
+    }
+
+    UserDao.validateUserExist(phone).then(function (exist_result) {
+        if (exist_result != null){
+            var token = TokenService.createToken(phone);
+            UserDao.resetUserPsd(phone,new_psd,token).then(function (reset_result) {
+                res.json(JsonResult(200,"密码找回成功",LoginInfo(exist_result,token)));
+            }).catch(function (err) {
+                res.json(JsonResult(500,"修改失败，数据库修改错误",err));
+            });
+        }else {
+            res.json(JsonResult(403,"该手机用户不存在",null));
+        }
+    }).catch(function (err) {
+        res.json(JsonResult(500, "数据库查询错误", err));
     });
-  } else {
-    res.json(JsonResult(401,"用户未登录",null));
-  }
-}
+});
+
+/**
+ * 验证Token
+ */
+router.get('/verifyToken',TokenService.verifyAuthorized,function(req,res,next){
+    res.json(JsonResult(200,"token有效",null));
+});
+
+/**
+ * 请求用户基础信息
+ */
+router.get('/getUserBaseInfo',TokenService.verifyAuthorized,function(req,res,next){
+    var user = req.user;
+    res.json(JsonResult(200,"返回用户信息成功",UserBaseInfo(user)));
+});
 
 module.exports = router;
