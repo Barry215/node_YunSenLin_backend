@@ -61,11 +61,49 @@ function resetUserPsd(phone, new_psd, token) {
     });
 }
 
+function logout(id) {
+    return User.update({
+        token : ""
+    },{
+        where:{
+            id : id
+        }
+    });
+}
+
+function updateUserHead(id,head_url) {
+    return User.update({
+        user_head : head_url
+    },{
+        where:{
+            id : id
+        }
+    });
+}
+
+function updateUserInfo(id,username,is_sync,is_push) {
+    var param_1 = is_sync?1:0;
+    var param_2 = is_push?1:0;
+
+    return User.update({
+        username : username,
+        is_sync : param_1,
+        is_push : param_2
+    },{
+        where:{
+            id : id
+        }
+    });
+}
+
 module.exports = {
     getLoginResult : getLoginResult,
     createUser : createUser,
     validateUserExist : validateUserExist,
     modifyUserPsd : modifyUserPsd,
     resetUserPsd : resetUserPsd,
+    logout : logout,
+    updateUserHead : updateUserHead,
+    updateUserInfo : updateUserInfo,
     updateUserToken : updateUserToken
 };

@@ -29,7 +29,6 @@ function verifyAuthorized(req, res, next) {
     if (token != null) {
         var verify_result = verifyToken(token);
         if (verify_result.success){
-
             UserDao.validateUserExist(verify_result.data.phone).then(function (exist_result) {
                 if (exist_result.token == token){
                     req.user = exist_result;

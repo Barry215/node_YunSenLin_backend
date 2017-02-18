@@ -5,7 +5,7 @@ var UserBaseInfo = require('../dto/UserBaseInfo');
 var UserDao = require('../dao/UserDao');
 var PhoneService = require('../service/PhoneService');
 var TokenService = require('../service/TokenService');
-var co = require('co');
+var QiniuService = require('../service/QiniuService');
 var router = express.Router();
 
 /**
@@ -124,7 +124,7 @@ router.post('/findPsd',function(req,res,next){
                 res.json(JsonResult(500,"修改失败，数据库修改错误",err));
             });
         }else {
-            res.json(JsonResult(403,"该手机用户不存在",null));
+            res.json(JsonResult(404,"该手机用户不存在",null));
         }
     }).catch(function (err) {
         res.json(JsonResult(500, "数据库查询错误", err));
@@ -139,11 +139,53 @@ router.get('/verifyToken',TokenService.verifyAuthorized,function(req,res,next){
 });
 
 /**
- * 请求用户基础信息
+ * 获取用户基础信息
  */
 router.get('/getUserBaseInfo',TokenService.verifyAuthorized,function(req,res,next){
     var user = req.user;
     res.json(JsonResult(200,"返回用户信息成功",UserBaseInfo(user)));
+});
+
+/**
+ * 获取上传凭证
+ */
+router.get('/getUploadKey',TokenService.verifyAuthorized,function(req,res,next){
+    console.log(req.query.filename);
+    res.json(JsonResult(200,"返回上传凭证成功",QiniuService.getUpToken(req.query.filename)));
+});
+
+/**
+ * 更新用户头像
+ */
+router.post('/updateUserHeadUrl',TokenService.verifyAuthorized,function(req,res,next){
+    UserDao.updateUserHead(req.user.id,req.body.head_url).then(function (update_result) {
+        console.log(update_result);
+        res.json(JsonResult(200,"头像更新成功",null));
+    }).catch(function (err) {
+        res.json(JsonResult(500,"头像更新失败，数据库更新失败",err));
+    });
+});
+
+/**
+ * 更新用户信息
+ */
+router.put('/updateUserInfo',TokenService.verifyAuthorized,function(req,res,next){
+    UserDao.updateUserInfo(req.user.id,req.body.username,req.body.is_sync,req.body.is_push).then(function (update_result) {
+        res.json(JsonResult(200,"用户信息更新成功",null));
+    }).catch(function (err) {
+        res.json(JsonResult(500,"用户信息更新失败，数据库更新失败",err));
+    });
+});
+
+/**
+ * 登录退出
+ */
+router.put('/exit',TokenService.verifyAuthorized,function(req,res,next){
+    UserDao.logout(req.user.id).then(function (logout_result) {
+        res.json(JsonResult(200,"退出成功",null));
+    }).catch(function (err) {
+        res.json(JsonResult(500,"退出失败，数据库更新失败",err));
+    });
 });
 
 module.exports = router;
