@@ -3,9 +3,11 @@ var JsonResult = require('../dto/JsonResult');
 var LoginInfo = require('../dto/LoginInfo');
 var UserBaseInfo = require('../dto/UserBaseInfo');
 var UserDao = require('../dao/UserDao');
+var BillDao = require('../dao/BillDao');
 var PhoneService = require('../service/PhoneService');
 var TokenService = require('../service/TokenService');
 var QiniuService = require('../service/QiniuService');
+var sequelize = require('../db/Sequelize');
 var router = express.Router();
 
 /**
@@ -187,5 +189,113 @@ router.put('/exit',TokenService.verifyAuthorized,function(req,res,next){
         res.json(JsonResult(500,"退出失败，数据库更新失败",err));
     });
 });
+
+
+/**
+ * 同步原木账单
+ */
+router.put('/syncLogBill',TokenService.verifyAuthorized,function(req,res,next){
+    BillDao.validateBillExist(req.body.recordTime).then(function (log_bill) {
+        if (log_bill != null){
+            return sequelize.transaction(function (t) {
+                return BillDao.updateBill(req.body.finance,req.body.recordTime,req.body.type,t).then(function (result) {
+                    return BillDao.updateLogData(req.body.data.inputIndex,log_bill.data_id,t).then(function (result) {
+                        return BillDao.getLogData(log_bill.data_id,t).then(function (log_data) {
+                            return BillDao.updateCount(req.body.data.count,log_data.count_id,t).then(function (result) {
+                                return BillDao.updateLogInput(req.body.data.input,log_data.log_id,t).then(function (result) {
+                                    req.body.data.logList.forEach(function(log_index) {
+                                        return BillDao.createLog(log_index, log_index.logType.id, log_data.id,t);
+                                    });
+                                    return BillDao.deleteLog(log_data.id,t);
+                                });
+                            });
+                        });
+                    });
+                });
+
+            }).then(function (result) {
+                res.json(JsonResult(200, "同步成功", null));
+            }).catch(function (err) {
+                res.json(JsonResult(500, "同步失败，数据库更新错误", err));
+            });
+        }else {
+            //开启事务
+            return sequelize.transaction(function (t) {
+                return BillDao.createLogInput(req.body.data.input, req.body.data.input.logType.id,t).then(function (logInput) {
+                    var log_input_id = logInput.id;
+                        return BillDao.createCount(req.body.data.count,t).then(function (count) {
+                            var count_id = count.id;
+                            return BillDao.createLogData(count_id, log_input_id, req.body.data.inputIndex, req.body.data.selectedLogType.id,t).then(function (logData) {
+                                var logData_id = logData.id;
+                                req.body.data.logList.forEach(function(log_index) {
+                                    return BillDao.createLog(log_index, log_index.logType.id, logData_id,t);
+                                });
+                                return BillDao.createBill(req.body.finance, req.body.recordTime, req.body.type, logData_id, req.user.id, 1,t);
+                            });
+                        });
+                    });
+            }).then(function (result) {
+                res.json(JsonResult(200, "同步成功", null));
+            }).catch(function (err) {
+                res.json(JsonResult(500, "同步失败，数据库插入错误", err));
+            });
+
+        }
+    }).catch(function (err) {
+        res.json(JsonResult(500,"同步失败，数据库查询错误",err));
+    });
+
+
+});
+
+/**
+ * 同步锯材账单
+ */
+router.put('/syncTimberBill',TokenService.verifyAuthorized,function(req,res,next){
+    BillDao.validateBillExist(req.body.recordTime).then(function (timber_bill) {
+        if (timber_bill != null){
+            return sequelize.transaction(function (t) {
+                return BillDao.updateBill(req.body.finance,req.body.recordTime,req.body.type,t).then(function (result) {
+                    return BillDao.updateTimberData(req.body.data.inputIndex,timber_bill.data_id,t).then(function (result) {
+                        return BillDao.getTimberData(timber_bill.data_id,t).then(function (timberData) {
+                            return BillDao.updateCount(req.body.data.count,timberData.count_id,t).then(function (result) {
+                                return BillDao.updateTimberInput(req.body.data.input,timberData.timber_id,t).then(function (result) {
+                                    req.body.data.timberList.forEach(function (timber_index){
+                                        return BillDao.createTimber(timber_index,timberData.id,t);
+                                    });
+                                    return BillDao.deleteTimber(timberData.id,t);
+                                });
+                            });
+                        });
+                    });
+                });
+            }).then(function (result) {
+                res.json(JsonResult(200, "同步成功", null));
+            }).catch(function (err) {
+                res.json(JsonResult(500, "同步失败，数据库插入错误", err));
+            });
+        }else {
+            return sequelize.transaction(function (t) {
+                return BillDao.createTimberInput(req.body.data.input,t).then(function (timberInput) {
+                    return BillDao.createCount(req.body.data.count,t).then(function (count) {
+                        return BillDao.createTimberData(count.id,timberInput.id,req.body.data.inputIndex,t).then(function (timberData) {
+                            req.body.data.timberList.forEach(function (timber_index){
+                                return BillDao.createTimber(timber_index,timberData.id,t);
+                            });
+                            return BillDao.createBill(req.body.finance, req.body.recordTime, req.body.type, timberData.id, req.user.id, 0,t);
+                        });
+                    });
+                });
+            }).then(function (result) {
+                res.json(JsonResult(200, "同步成功", null));
+            }).catch(function (err) {
+                res.json(JsonResult(500, "同步失败，数据库插入错误", err));
+            });
+        }
+    }).catch(function (err) {
+        res.json(JsonResult(500,"同步失败，数据库查询错误",err));
+    });
+});
+
 
 module.exports = router;
