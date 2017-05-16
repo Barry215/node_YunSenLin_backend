@@ -11,7 +11,12 @@
     "debug": "~2.6.0",
     "ejs": "~2.5.5",
     "express": "~4.14.1",
+    "jsonwebtoken": "^7.3.0",
     "morgan": "~1.7.0",
+    "mysql": "^2.13.0",
+    "pm2": "^2.4.0",
+    "qiniu": "^6.1.13",
+    "sequelize": "^3.30.2",
     "serve-favicon": "~2.3.2"
   }
 }
