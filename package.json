@@ -17,6 +17,7 @@
     "pm2": "^2.4.0",
     "qiniu": "^6.1.13",
     "sequelize": "^3.30.2",
-    "serve-favicon": "~2.3.2"
+    "serve-favicon": "~2.3.2",
+    "ws": "^3.0.0"
   }
 }

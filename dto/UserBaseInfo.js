@@ -14,7 +14,7 @@ function userBaseInfo(user) {
     if (user.user_head != null){
         user_head = user.user_head;
     }else {
-        user_head = "http://oljvmfhby.bkt.clouddn.com/default.jpg";
+        user_head = "http://oljvmfhby.bkt.clouddn.com/default.png";
     }
 
     return {
