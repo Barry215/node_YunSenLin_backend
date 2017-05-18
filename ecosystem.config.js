@@ -17,7 +17,7 @@ module.exports = {
   deploy : {
     production : {
       user : "root",
-      host : "115.159.190.30",
+      host : "maijinta.cn", //115.159.190.30
       ref  : "origin/master",
       repo : "git@github.com:Barry215/node_demo.git",
       path : "/home/root/www/production",
