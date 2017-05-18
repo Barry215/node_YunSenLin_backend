@@ -7,7 +7,7 @@
 var app = require('../app');
 var debug = require('debug')('node-demo:server');
 var http = require('http');
-var WebSocket = require('ws');
+var WebSocketServer = require('websocket').server;
 
 /**
  * Get port from environment and store in Express.
@@ -27,12 +27,19 @@ var server = http.createServer(app);
  * Listen on provided port, on all network interfaces.
  */
 
-var wss = new WebSocket.Server({server});
+var wss = new WebSocketServer({
+    httpServer : server,
+    autoAcceptConnections : true
+});
 
 wss.on('connection', function(wsConnect) {
     wsConnect.on('message', function(message) {
         console.log("received ",message);
         wsConnect.send('reply');
+    });
+
+    wsConnect.on('close', function(reasonCode,description) {
+        console.log("connection close!")
     });
 });
 
