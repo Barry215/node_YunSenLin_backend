@@ -7,7 +7,7 @@
 var app = require('../app');
 var debug = require('debug')('node-demo:server');
 var http = require('http');
-var WebSocketServer = require('ws').Server;
+var WebSocket = require('ws');
 
 /**
  * Get port from environment and store in Express.
@@ -27,13 +27,7 @@ var server = http.createServer(app);
  * Listen on provided port, on all network interfaces.
  */
 
-server.listen(port);
-server.on('error', onError);
-server.on('listening', onListening);
-
-var wss = new WebSocketServer({
-    server: server
-});
+var wss = new WebSocket.Server({server});
 
 wss.on('connection', function(wsConnect) {
     wsConnect.on('message', function(message) {
@@ -41,6 +35,12 @@ wss.on('connection', function(wsConnect) {
         wsConnect.send('reply');
     });
 });
+
+server.listen(port);
+server.on('error', onError);
+server.on('listening', onListening);
+
+
 
 /**
  * Normalize a port into a number, string, or false.
