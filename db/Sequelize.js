@@ -5,8 +5,8 @@ var Sequelize = require('sequelize');
 
 var sequelize = new Sequelize(
     'yunsenlin',    //数据库名
-    'frank',         //用户名
-    'Frank315!',    //密码
+    'root',         //用户名
+    '123123',    //密码
     {
         'dialect': 'mysql',
         'host': '115.159.190.30',
